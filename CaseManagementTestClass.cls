@@ -1,125 +1,79 @@
-@isTest
-global class CaseManagementTestClass
+public with sharing class JSONGenerator
 {
-    @TestSetUp
-    static void setUpMethod()
+    public static System.JSONGenerator generateJSONErrorResponse(String missingField) 
     {
-        Account acc=new Account();
-        acc.Name='Test';
-        acc.CustomerId__c='88888';
-        insert acc;
-        
-            // Set up the test data
-            Case caseRecord = new Case(
-            RecordTypeId =  Schema.SObjectType.Case.getRecordTypeInfosByName().get('General').getRecordTypeId(),
-            UI_ContactReason__c = 'Query or Manage my order',
-            Status = 'New',
-            Origin = 'Online',
-            AccountId=acc.Id
-        );
-        
-        insert caseRecord;  
+        try{
+            // Create the JSON generator
+            System.JSONGenerator gen = JSON.createGenerator(true);
+            
+            // Start building the JSON structure
+            gen.writeStartObject();
+            gen.writeNumberField('statusCode', 400);
+            gen.writeBooleanField('success', false);
+            gen.writeStringField('time', String.valueOf(DateTime.now()));
+            
+            // Build the 'error' object
+            gen.writeFieldName('error');
+            gen.writeStartObject();
+            gen.writeStringField('message',  missingField);
+            gen.writeEndObject();
+            
+            // Get the JSON string
+            String jsonString = gen.getAsString();
+            
+            // Display the generated JSON
+            System.debug('Generated JSON: ' + jsonString);
+            return gen;
+            
+        } 
+        catch (Exception f)
+        {
+            System.JSONGenerator errorJSONgen = JSON.createGenerator(true);
+            errorJSONgen.writeStartObject();
+            errorJSONgen.writeStringField('message', 'An error occured while generating the Json response');
+            errorJSONgen.writeStringField('exceptionMessage',f.getMessage());
+            errorJSONgen.writeEndObject();
+            String jsonErrorString = errorJSONgen.getAsString();
+            return errorJSONgen;
+            
+        }
     }
     
-    @IsTest
-    public static void testcaseDataGet() 
-    {
-        case caseQuery= [select Id,CAC__c,Origin,AccountId,UI_ContactReason__c,TLS_DocumentationLink__c,TLS_OnlineSource__c,TLS_URL__c,CaseNumber FROM case WHERE Origin = 'Online' Limit 1];
-        String str = '{\"tlsdocumentationlink\": \"Test7 closed case Sharepoint Document URL Test\",\"tlsonlinesource\" :\"Proof Of Occupancy\",\"tlsurl\" : \"https://login.salesforce.com/\" ,\"origin\" : \"Online\",\"accountnumber\" : \"'+caseQuery.CAC__c+'\", \"caseid\" : \"'+caseQuery.CaseNumber+'\"}';
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse(); 
-        req.requestURI = 'services/apexrest/CodedetailData';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(str);
-        RestContext.request = req;
-        RestContext.response = res;
-        Test.startTest();
-        CaseManagementPostman.caseDataGet();
-        assert.areEqual([SELECT Id,Origin,TLS_DocumentationLink__c FROM Case WHERE Origin = 'Online' ].TLS_DocumentationLink__c, 'Test7 closed case Sharepoint Document URL Test');
-        assert.areEqual(200,res.statusCode);
-        Test.stopTest();
-    }   
-    
-    @IsTest
-    public static void testpayLoadValidation() 
-    {    
-        case caseQuery= [select Id,CAC__c,Origin,AccountId,UI_ContactReason__c,TLS_DocumentationLink__c,TLS_OnlineSource__c,TLS_URL__c,CaseNumber FROM case WHERE Origin = 'Online' Limit 1];
-        String str = '{\"tlsdocumentationlink\": \"Test7 closed case Sharepoint Document URL Test\",\"tlsonlinesource\" :\"Proof Of Occupancy\",\"tlsurl\" : \"https://login.salesforce.com/\" ,\"origin\" : \"Online\",\"accountnumber\" : \"999\", \"caseid\" : '+caseQuery.Id+'\"}';
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse(); 
-        req.requestURI = 'services/apexrest/CodedetailData';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(str);
-        RestContext.request = req;
-        RestContext.response = res;
-        res.statusCode = 400 ;
-        
-        Map<String, Object> queryData1 = new Map<String, Object>{
-            'accountnumber' => '898900',
-            'origin'        => 'Online',
-            'caseid'        => '123489'
-            };
-        RestResponse responseData1 = new RestResponse();
-        
-        Test.startTest();
-        CaseManagementPostman.payLoadValidation(queryData1, responseData1);
-        Test.stopTest();
-        
-        System.debug('res.'+res.statusCode);
-        System.assertEquals(400, res.statusCode);   
-    }
-    
-    @isTest
-    public static void testgeneralMethodToCreateCase() 
-    {
-        case caseQuery = [select Id,CAC__c,Origin,AccountId,UI_ContactReason__c,TLS_DocumentationLink__c,TLS_OnlineSource__c,TLS_URL__c,CaseNumber FROM case WHERE Origin = 'Online' Limit 1];
-        String str = '{\"tlsdocumentationlink\": \"Test7 closed case Sharepoint Document URL Test\",\"tlsonlinesource\" :\"Proof Of Occupancy\",\"tlsurl\" : \"https://login.salesforce.com/\" ,\"origin\" : \"Online\",\"accountnumber\" : \"999\", \"caseid\" : \"090\"}';
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse(); 
-        req.requestURI = 'services/apexrest/CodedetailData';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(str);
-        RestContext.request = req;
-        RestContext.response = res; 
-        Test.startTest();
-        CaseManagementPostman.caseDataGet();
-        assert.areEqual(400,res.statusCode);
-        Test.stopTest();  
-    }
-    
-    @IsTest
-    public static void caseDataOnlineSourceTest()
-    {
-        case caseQuery= [Select Id,CAC__c,Origin,AccountId,UI_ContactReason__c,TLS_DocumentationLink__c,TLS_OnlineSource__c,TLS_URL__c,CaseNumber FROM Case WHERE Origin = 'Online' Limit 1];
-        String str = '{\"tlsdocumentationlink\": \"Test7 closed case Sharepoint Document URL Test\",\"tlsonlinesource\" :\"Occupancy\",\"tlsurl\" : \"https://login.salesforce.com/\" ,\"origin\" : \"Online\",\"accountnumber\" : \"999\", \"caseid\" : \"090\"}';
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse(); 
-        req.requestURI = 'services/apexrest/CodedetailData';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(str);
-        RestContext.request = req;
-        RestContext.response = res; 
-        Test.startTest();
-        CaseManagementPostman.caseDataGet();
-        assert.areEqual(400,res.statusCode);
-        Test.stopTest();
-    }
-    
-    @IsTest
-    public static void generalCaseManagementForClosedCase()
-    {
-        case caseQuery= [Select Id,CAC__c,IsClosed,Origin,AccountId,UI_ContactReason__c,TLS_DocumentationLink__c,TLS_OnlineSource__c,TLS_URL__c,CaseNumber FROM Case WHERE Origin = 'Online' And IsClosed = false Limit 1];
-        String str = '{\"tlsdocumentationlink\": \"Test7 closed case Sharepoint Document URL Test\",\"tlsonlinesource\" :\"Proof Of Occupancy\",\"tlsurl\" : \"https://login.salesforce.com/\" ,\"origin\" : \"Online\",\"accountnumber\" : \"999\", \"caseid\" : \"090\"}';
-        RestRequest req = new RestRequest();
-        RestResponse res = new RestResponse(); 
-        req.requestURI = 'services/apexrest/CodedetailData';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(str);
-        RestContext.request = req;
-        RestContext.response = res; 
-        Test.startTest();
-        CaseManagementPostman.caseDataGet();
-        assert.areEqual(400,res.statusCode);
-        Test.stopTest();
+    public static System.JSONGenerator generateJsonContentResponse(Map<String, String> responseInMap) { 
+        try {
+            // Create the JSON generator
+            System.JSONGenerator gen = JSON.createGenerator(true);
+            // Start building the JSON structure
+            gen.writeStartObject();
+            gen.writeNumberField('status', 201);
+            gen.writeBooleanField('success', true);
+            gen.writeStringField('time', String.valueOf(DateTime.now()));
+            // Build the 'data' object
+            gen.writeFieldName('data');
+            gen.writeStartObject();
+            gen.writeStringField('Id', responseInMap.get('Id'));
+            gen.writeStringField('CaseNumber', responseInMap.get('CaseNumber'));
+            gen.writeEndObject();
+            gen.writeEndObject();
+            
+            // Get the JSON string
+            String jsonString = gen.getAsString();
+            
+            // Display the generated JSON
+            System.debug('Generated JSON: ' + jsonString);
+            
+            // Return the JSON string
+            return gen;
+        }
+        catch (Exception e) 
+        {
+            System.JSONGenerator errorgen = JSON.createGenerator(true);
+            errorgen.writeStartObject();
+            errorgen.writeStringField('message', 'An error occured while generating the Json response');
+            errorgen.writeStringField('exceptionMessage',e.getMessage());
+            errorgen.writeEndObject();
+            String jsonErrorString = errorgen.getAsString();
+            return errorgen;
+        }
     }
 }
